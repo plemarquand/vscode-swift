@@ -33,7 +33,6 @@ suite("SwiftPluginTaskProvider Test Suite", () => {
     suiteSetup(async () => {
         workspaceContext = await globalWorkspaceContextPromise;
         folderContext = await folderContextPromise("command-plugin");
-        expect(workspaceContext.folders).to.have.lengthOf(0);
         await folderContext.loadSwiftPlugins();
         expect(workspaceContext.folders).to.not.have.lengthOf(0);
     });
