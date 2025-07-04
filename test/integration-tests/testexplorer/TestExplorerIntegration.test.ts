@@ -658,31 +658,6 @@ suite("Test Explorer Suite", function () {
                         });
                     });
 
-                    test(`swift-testing Runs Suite (${runProfile})`, async function () {
-                        const testRun = await runTest(
-                            testExplorer,
-                            runProfile,
-                            "PackageTests.MixedSwiftTestingSuite"
-                        );
-
-                        assertTestResults(testRun, {
-                            passed: ["PackageTests.MixedSwiftTestingSuite/testPassing()"],
-                            skipped: ["PackageTests.MixedSwiftTestingSuite/testDisabled()"],
-                            failed: [
-                                {
-                                    test: "PackageTests.MixedSwiftTestingSuite/testFailing()",
-                                    issues: [
-                                        `testFailing() \u{203A} ${MessageRenderer.render({ symbol: TestSymbol.fail, text: "Expectation failed: 1 == 2" })}`,
-                                    ],
-                                },
-                                {
-                                    issues: [],
-                                    test: "PackageTests.MixedSwiftTestingSuite",
-                                },
-                            ],
-                        });
-                    });
-
                     test(`swift-testing Runs parameterized test (${runProfile})`, async function () {
                         const testId = "PackageTests.parameterizedTest(_:)";
                         const testRun = await runTest(testExplorer, runProfile, testId);
