@@ -11,22 +11,22 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 //===----------------------------------------------------------------------===//
-
-import * as vscode from "vscode";
-import * as lcov from "lcov-parse";
 import * as asyncfs from "fs/promises";
+import * as lcov from "lcov-parse";
 import * as path from "path";
 import { Writable } from "stream";
 import { promisify } from "util";
-import configuration from "../configuration";
+import * as vscode from "vscode";
+
 import { FolderContext } from "../FolderContext";
-import { execFileStreamOutput } from "../utilities/utilities";
-import { BuildFlags } from "../toolchain/BuildFlags";
-import { TestLibrary } from "../TestExplorer/TestRunner";
-import { DisposableFileCollection, TemporaryFolder } from "../utilities/tempFolder";
 import { TargetType } from "../SwiftPackage";
-import { TestingConfigurationFactory } from "../debugger/buildConfig";
 import { TestKind } from "../TestExplorer/TestKind";
+import { TestLibrary } from "../TestExplorer/TestRunner";
+import configuration from "../configuration";
+import { TestingConfigurationFactory, effectiveBuildSystem } from "../debugger/buildConfig";
+import { BuildFlags } from "../toolchain/BuildFlags";
+import { DisposableFileCollection, TemporaryFolder } from "../utilities/tempFolder";
+import { execFileStreamOutput } from "../utilities/utilities";
 
 interface CodeCovFile {
     testLibrary: TestLibrary;
@@ -140,28 +140,16 @@ export class TestCoverage {
      * Exports a `.profdata` file using `llvm-cov export`, returning the result as a `Buffer`.
      */
     private async exportProfdata(types: TestLibrary[], mergedProfileFile: string): Promise<Buffer> {
-        const coveredBinaries = new Set<string>();
-        if (types.includes(TestLibrary.xctest)) {
-            let xcTestBinary = await TestingConfigurationFactory.testExecutableOutputPath(
-                this.folderContext,
-                TestKind.coverage,
-                TestLibrary.xctest
-            );
-            if (process.platform === "darwin") {
-                const packageName = await this.folderContext.swiftPackage.name;
-                xcTestBinary += `/Contents/MacOS/${packageName}PackageTests`;
-            }
-            coveredBinaries.add(xcTestBinary);
-        }
+        const allBuildArgs = [
+            ...configuration.buildArguments,
+            ...configuration.folder(this.folderContext.workspaceFolder).additionalTestArguments,
+        ];
+        const buildSystem = effectiveBuildSystem(this.folderContext.swiftVersion, allBuildArgs);
 
-        if (types.includes(TestLibrary.swiftTesting)) {
-            const swiftTestBinary = await TestingConfigurationFactory.testExecutableOutputPath(
-                this.folderContext,
-                TestKind.coverage,
-                TestLibrary.swiftTesting
-            );
-            coveredBinaries.add(swiftTestBinary);
-        }
+        const coveredBinaries =
+            buildSystem === "swiftbuild"
+                ? await this.swiftbuildCoveredBinaries(types)
+                : await this.nativeCoveredBinaries(types);
 
         let buffer = Buffer.alloc(0);
         const writableStream = new Writable({
@@ -192,6 +180,67 @@ export class TestCoverage {
         );
 
         return buffer;
+    }
+
+    // Collects coverage binary paths for the native build system (one binary per package).
+    private async nativeCoveredBinaries(types: TestLibrary[]): Promise<string[]> {
+        const coveredBinaries = new Set<string>();
+        if (types.includes(TestLibrary.xctest)) {
+            let xcTestBinary = await TestingConfigurationFactory.testExecutableOutputPath(
+                this.folderContext,
+                TestKind.coverage,
+                TestLibrary.xctest
+            );
+            if (process.platform === "darwin") {
+                const packageName = await this.folderContext.swiftPackage.name;
+                xcTestBinary += `/Contents/MacOS/${packageName}PackageTests`;
+            }
+            coveredBinaries.add(xcTestBinary);
+        }
+
+        if (types.includes(TestLibrary.swiftTesting)) {
+            const swiftTestBinary = await TestingConfigurationFactory.testExecutableOutputPath(
+                this.folderContext,
+                TestKind.coverage,
+                TestLibrary.swiftTesting
+            );
+            coveredBinaries.add(swiftTestBinary);
+        }
+
+        return [...coveredBinaries];
+    }
+
+    // Collects coverage binary paths for the swiftbuild build system (one binary per test target).
+    private async swiftbuildCoveredBinaries(types: TestLibrary[]): Promise<string[]> {
+        const testTargets = await this.folderContext.swiftPackage.getTargets(TargetType.test);
+        const coveredBinaries = new Set<string>();
+
+        for (const target of testTargets) {
+            if (types.includes(TestLibrary.xctest)) {
+                let xcTestBinary = await TestingConfigurationFactory.testExecutableOutputPath(
+                    this.folderContext,
+                    TestKind.coverage,
+                    TestLibrary.xctest,
+                    target.name
+                );
+                if (process.platform === "darwin") {
+                    xcTestBinary += `/Contents/MacOS/${target.name}`;
+                }
+                coveredBinaries.add(xcTestBinary);
+            }
+
+            if (types.includes(TestLibrary.swiftTesting)) {
+                const swiftTestBinary = await TestingConfigurationFactory.testExecutableOutputPath(
+                    this.folderContext,
+                    TestKind.coverage,
+                    TestLibrary.swiftTesting,
+                    target.name
+                );
+                coveredBinaries.add(swiftTestBinary);
+            }
+        }
+
+        return [...coveredBinaries];
     }
 
     /**
