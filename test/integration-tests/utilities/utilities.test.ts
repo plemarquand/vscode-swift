@@ -1,3 +1,7 @@
+import * as Stream from "stream";
+
+import { execFileStreamOutput, execSwift, getSwiftExecutable } from "@src/utilities/utilities";
+
 //===----------------------------------------------------------------------===//
 //
 // This source file is part of the VS Code Swift open source project
@@ -11,10 +15,7 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 //===----------------------------------------------------------------------===//
-import * as assert from "assert";
-import * as Stream from "stream";
-
-import { execFileStreamOutput, execSwift, getSwiftExecutable } from "@src/utilities/utilities";
+import assert = require("assert");
 
 suite("Utilities Test Suite", () => {
     test("execFileStreamOutput", async () => {
