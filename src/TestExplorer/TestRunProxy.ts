@@ -664,6 +664,10 @@ class DarwinTestItemFinder implements TestItemFinder {
     }
 }
 
+function isIdWithoutTarget(itemId: string, id: string): boolean {
+    return itemId === id || itemId.endsWith(`.${id}`);
+}
+
 /** Defines how to find test items given a test id from XCTest output on non-Darwin platforms */
 class NonDarwinTestItemFinder implements TestItemFinder {
     constructor(
@@ -689,7 +693,7 @@ class NonDarwinTestItemFinder implements TestItemFinder {
         }
 
         if (testIndex === -1) {
-            testIndex = this.testItems.findIndex(item => item.id.endsWith(id));
+            testIndex = this.testItems.findIndex(item => isIdWithoutTarget(item.id, id));
         }
 
         return testIndex;
@@ -710,7 +714,7 @@ class NonDarwinTestItemFinder implements TestItemFinder {
         filename: string,
         item: vscode.TestItem
     ): boolean {
-        if (!item.id.endsWith(testName)) {
+        if (!isIdWithoutTarget(item.id, testName)) {
             return false;
         }
 

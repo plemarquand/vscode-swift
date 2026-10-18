@@ -21,7 +21,7 @@ import { TestRunArguments } from "@src/TestExplorer/TestRunArguments";
 import { TestRunProxy } from "@src/TestExplorer/TestRunProxy";
 import { WorkspaceContext } from "@src/WorkspaceContext";
 
-import { instance, mockObject } from "../../MockUtils";
+import { instance, mockGlobalValue, mockObject } from "../../MockUtils";
 import { TestLogger } from "../../utilities/TestLogger";
 
 suite("TestRunProxy Unit Test Suite", () => {
@@ -219,6 +219,38 @@ suite("TestRunProxy Unit Test Suite", () => {
             proxy.clearParameterizedTestCases(2);
 
             expect(parent.children.size).to.equal(0);
+        });
+    });
+
+    suite("finding test items on non-Darwin platforms", () => {
+        const mockedPlatform = mockGlobalValue(process, "platform");
+
+        beforeEach(() => {
+            mockedPlatform.setValue("linux");
+        });
+
+        test("A test is not matched by a class whose name ends with the same text", () => {
+            const proxy = createProxy([
+                createTestItem("MyTests.JSONParserTests/testEmpty"),
+                createTestItem("MyTests.ParserTests/testEmpty"),
+            ]);
+
+            expect(proxy.getTestIndex("ParserTests/testEmpty")).to.equal(1);
+        });
+
+        test("A suite is found by its name without the target", () => {
+            const proxy = createProxy([
+                createTestItem("MyTests.JSONParserTests"),
+                createTestItem("MyTests.ParserTests"),
+            ]);
+
+            expect(proxy.getTestIndex("ParserTests")).to.equal(1);
+        });
+
+        test("A test is found by its full id", () => {
+            const proxy = createProxy([createTestItem("MyTests.ParserTests/testEmpty")]);
+
+            expect(proxy.getTestIndex("MyTests.ParserTests/testEmpty")).to.equal(0);
         });
     });
 });
