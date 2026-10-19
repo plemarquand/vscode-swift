@@ -418,5 +418,20 @@ suite("LanguageClientToolchainCoordinator Unit Tests", () => {
             expect(newClient1.start).to.have.been.calledOnce;
             expect(newClient2.start).to.have.been.calledOnce;
         });
+
+        test("re-creates one shared client for folders with the same toolchain when swift.sourcekit-lsp.disable is changed to false", async function () {
+            const folder1 = await addFolderToWorkspace(new Version(6, 4, 0));
+            const folder2 = await addFolderToWorkspace(new Version(6, 4, 0));
+
+            mockedLspConfig.disable = true;
+            await fireConfigurationChange("swift.sourcekit-lsp", "swift.sourcekit-lsp.disable");
+            mockedLspConfig.disable = false;
+            await fireConfigurationChange("swift.sourcekit-lsp", "swift.sourcekit-lsp.disable");
+
+            expect(coordinator.getAllClients()).to.have.length(1);
+            const client = coordinator.getClient(instance(folder1));
+            expect(coordinator.getClient(instance(folder2))).to.equal(client);
+            expect(client.start).to.have.been.calledOnce;
+        });
     });
 });

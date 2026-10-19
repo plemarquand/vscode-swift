@@ -191,8 +191,8 @@ export class LanguageClientToolchainCoordinator implements AsyncDisposable {
                 { label: folder.name }
             );
             client = this.createLanguageClient(folder.toolchain);
-            await client.addFolder(folder);
             this.clients.push(client);
+            await client.addFolder(folder);
             this.logger.trace(`Starting language client for Swift ${folder.swiftVersion}`, {
                 label: folder.name,
             });
